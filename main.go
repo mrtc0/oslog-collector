@@ -160,7 +160,7 @@ func (c *OSLogCollector) savePosition() error {
 func (c *OSLogCollector) collectLogs() error {
 	for {
 		endTime := time.Now().Format(logCommandTimeFormat)
-		cmd := exec.Command("log", "show", "--predicate", c.Predicate, "--style", "json", "--start", c.LastTimestamp, "--end", endTime)
+		cmd := exec.Command("log", "show", "--predicate", c.Predicate, "--style", "ndjson", "--start", c.LastTimestamp, "--end", endTime)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("error executing log command: %v, output: %s", err, string(output))
