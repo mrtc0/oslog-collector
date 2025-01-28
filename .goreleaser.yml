@@ -1,0 +1,29 @@
+version: 2
+before:
+  hooks:
+    - go mod download
+    - go mod tidy
+builds:
+  - id: oslog-collector-darwin
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    main: main.go
+
+archives:
+  - id: oslog-collector-archive
+    name_template: '{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+    format_overrides:
+      - goos: darwin
+        format: zip
+    files:
+      - LICENSE
+
+checksum:
+  name_template: 'checksums.txt'
+
+release:
+  draft: true
+  replace_existing_draft: true
