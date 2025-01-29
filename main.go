@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -26,11 +25,12 @@ type Config struct {
 }
 
 type OSLogCollectorConfig struct {
-	Name         string `yaml:"name"`
-	Predicate    string `yaml:"predicate"`
-	OutputFile   string `yaml:"output_file"`
-	PositionFile string `yaml:"position_file"`
-	Interval     int    `yaml:"interval"`
+	Name          string `yaml:"name"`
+	Predicate     string `yaml:"predicate"`
+	OutputFile    string `yaml:"output_file"`
+	PositionFile  string `yaml:"position_file"`
+	Interval      int    `yaml:"interval"`
+	WithInfoLevel bool   `yaml:"with_info_level"`
 }
 
 type OSLogCollector struct {
@@ -40,9 +40,11 @@ type OSLogCollector struct {
 	PositionFile  string
 	Interval      int
 	LastTimestamp string
+	WithInfoLevel bool
 
-	logFile *os.File
-	mu      sync.Mutex
+	logCommandRunnerGenerator LogCommandRunnerGenerator
+	logFile                   *os.File
+	mu                        sync.Mutex
 }
 
 type Position struct {
@@ -73,13 +75,27 @@ func removePIDFile(pidFile string) {
 	os.Remove(pidFile)
 }
 
-func NewOSLogCollector(config OSLogCollectorConfig) (*OSLogCollector, error) {
+type OSLogCollectorOption func(*OSLogCollector)
+
+func WithLogCommandRunner(generator LogCommandRunnerGenerator) OSLogCollectorOption {
+	return func(c *OSLogCollector) {
+		c.logCommandRunnerGenerator = generator
+	}
+}
+
+func NewOSLogCollector(config OSLogCollectorConfig, opts ...OSLogCollectorOption) (*OSLogCollector, error) {
 	collector := &OSLogCollector{
-		Name:         config.Name,
-		Predicate:    config.Predicate,
-		OutputFile:   config.OutputFile,
-		PositionFile: config.PositionFile,
-		Interval:     config.Interval,
+		Name:                      config.Name,
+		Predicate:                 config.Predicate,
+		OutputFile:                config.OutputFile,
+		PositionFile:              config.PositionFile,
+		Interval:                  config.Interval,
+		WithInfoLevel:             config.WithInfoLevel,
+		logCommandRunnerGenerator: NewLogCommandRunner,
+	}
+
+	for _, opt := range opts {
+		opt(collector)
 	}
 
 	if err := collector.loadPosition(); err != nil {
@@ -160,8 +176,9 @@ func (c *OSLogCollector) savePosition() error {
 func (c *OSLogCollector) collectLogs() error {
 	for {
 		endTime := time.Now().Format(logCommandTimeFormat)
-		cmd := exec.Command("log", "show", "--predicate", c.Predicate, "--style", "ndjson", "--start", c.LastTimestamp, "--end", endTime)
-		output, err := cmd.CombinedOutput()
+
+		command := NewLogCommandBuilder().WithPredicate(c.Predicate).WithStartTime(c.LastTimestamp).WithEndTime(endTime).WithStyle(defaultStyle).WithInfoLevel(c.WithInfoLevel).Build()
+		output, err := c.logCommandRunnerGenerator(command).RunLogCommand()
 		if err != nil {
 			return fmt.Errorf("error executing log command: %v, output: %s", err, string(output))
 		}
@@ -198,7 +215,7 @@ func main() {
 
 	collectors := make([]*OSLogCollector, 0, len(config.Collectors))
 	for i := range config.Collectors {
-		collector, err := NewOSLogCollector(config.Collectors[i])
+		collector, err := NewOSLogCollector(config.Collectors[i], WithLogCommandRunner(NewLogCommandRunner))
 		if err != nil {
 			log.Fatalf("Error creating collector: %v", err)
 			os.Exit(1)
