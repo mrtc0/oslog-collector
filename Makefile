@@ -3,7 +3,7 @@ all: clean build
 
 .PHONY: build
 build:
-	go build -o bin/oslog-collector .
+	go build -o bin/oslog-collector cmd/oslog-collector/main.go
 
 .PHONY: clean
 clean:

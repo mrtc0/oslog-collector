@@ -1,10 +1,6 @@
-package main
+package oslog_collector
 
 import "os/exec"
-
-var (
-	defaultStyle = "ndjson"
-)
 
 type LogCommandRunnerGenerator func(args []string) LogCommandRunner
 
