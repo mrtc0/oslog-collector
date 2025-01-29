@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
+
+	"github.com/Songmu/flextime"
 )
 
 var (
@@ -96,7 +97,7 @@ func (c *OSLogCollector) writeToLogFile(data []byte) error {
 func (c *OSLogCollector) loadPosition() error {
 	data, err := os.ReadFile(c.PositionFile)
 	if os.IsNotExist(err) {
-		c.LastTimestamp = time.Now().Add(-time.Hour).Format(logCommandTimeFormat)
+		c.LastTimestamp = flextime.Now().Format(logCommandTimeFormat)
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("error reading position file: %v", err)
@@ -126,27 +127,21 @@ func (c *OSLogCollector) savePosition() error {
 }
 
 func (c *OSLogCollector) CollectLogs() error {
-	for {
-		endTime := time.Now().Format(logCommandTimeFormat)
+	endTime := flextime.Now().Format(logCommandTimeFormat)
 
-		command := NewLogCommandBuilder().
-			WithPredicate(c.Predicate).WithStartTime(c.LastTimestamp).WithEndTime(endTime).
-			WithStyle(defaultStyle).WithInfoLevel(c.WithInfoLevel).
-			Build()
-		output, err := c.logCommandRunnerGenerator(command).RunLogCommand()
-		if err != nil {
-			return fmt.Errorf("error executing log command: %v, output: %s", err, string(output))
-		}
-
-		if err := c.writeToLogFile(output); err != nil {
-			return err
-		}
-
-		c.LastTimestamp = endTime
-		if err := c.savePosition(); err != nil {
-			return err
-		}
-
-		time.Sleep(time.Duration(c.Interval) * time.Second)
+	command := NewLogCommandBuilder().
+		WithPredicate(c.Predicate).WithStartTime(c.LastTimestamp).WithEndTime(endTime).
+		WithStyle(defaultStyle).WithInfoLevel(c.WithInfoLevel).
+		Build()
+	output, err := c.logCommandRunnerGenerator(command).RunLogCommand()
+	if err != nil {
+		return fmt.Errorf("error executing log command: %v, output: %s", err, string(output))
 	}
+
+	if err := c.writeToLogFile(output); err != nil {
+		return err
+	}
+
+	c.LastTimestamp = endTime
+	return c.savePosition()
 }

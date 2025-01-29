@@ -3,12 +3,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	oslog_collector "github.com/mrtc0/oslog-collector"
 )
@@ -70,18 +72,33 @@ func main() {
 		}
 	}()
 
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cleanup := func() {
+		cancel()
+		removePIDFile(config.PIDFile)
+	}
+	defer cleanup()
+
 	var wg sync.WaitGroup
 	for _, collector := range collectors {
 		wg.Add(1)
+
 		go func(c *oslog_collector.OSLogCollector) {
-			// TODO: Pass context to collectLogs() to make it cancelable and possibly support graceful shutdown
 			defer wg.Done()
-			if err := c.CollectLogs(); err != nil {
-				log.Fatalf("Error collecting logs for %s: %v\n", c.Name, err)
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					if err := c.CollectLogs(); err != nil {
+						log.Fatalf("Error collecting logs for %s: %v\n", c.Name, err)
+					}
+					time.Sleep(time.Duration(c.Interval) * time.Second)
+				}
 			}
 		}(collector)
 	}
 
 	wg.Wait()
-	removePIDFile(config.PIDFile)
 }

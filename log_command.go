@@ -2,6 +2,11 @@ package oslog_collector
 
 import "os/exec"
 
+var (
+	_ LogCommandRunnerGenerator = NewLogCommandRunner
+	_ LogCommandRunner          = &logCommandRunner{}
+)
+
 type LogCommandRunnerGenerator func(args []string) LogCommandRunner
 
 type LogCommandRunner interface {
