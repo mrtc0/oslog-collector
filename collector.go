@@ -17,6 +17,10 @@ var (
 	defaultStyle         = "ndjson"
 )
 
+type Position struct {
+	LastTimestamp string `json:"last_timestamp"`
+}
+
 type OSLogCollector struct {
 	Name          string
 	Predicate     string
@@ -67,7 +71,7 @@ func NewOSLogCollector(config OSLogCollectorConfig, opts ...OSLogCollectorOption
 
 // StartLogCollectors starts the OS Log collectors in the background.
 // It will run until the context is canceled.
-func StartLogCollectors(ctx context.Context, collectors []*OSLogCollector) error {
+func StartLogCollectors(ctx context.Context, collectors []*OSLogCollector) {
 	var wg sync.WaitGroup
 	for _, collector := range collectors {
 		wg.Add(1)
@@ -89,8 +93,6 @@ func StartLogCollectors(ctx context.Context, collectors []*OSLogCollector) error
 	}
 
 	wg.Wait()
-
-	return nil
 }
 
 func (c *OSLogCollector) CollectLogs() error {
