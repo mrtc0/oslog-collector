@@ -1,10 +1,13 @@
 package oslog_collector
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/Songmu/flextime"
 )
@@ -60,6 +63,54 @@ func NewOSLogCollector(config OSLogCollectorConfig, opts ...OSLogCollectorOption
 	}
 
 	return collector, nil
+}
+
+// StartLogCollectors starts the OS Log collectors in the background.
+// It will run until the context is canceled.
+func StartLogCollectors(ctx context.Context, collectors []*OSLogCollector) error {
+	var wg sync.WaitGroup
+	for _, collector := range collectors {
+		wg.Add(1)
+
+		go func(c *OSLogCollector) {
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					if err := c.CollectLogs(); err != nil {
+						slog.Error("Error collecting logs", "collector_name", c.Name, "error", err)
+					}
+					time.Sleep(time.Duration(c.Interval) * time.Second)
+				}
+			}
+		}(collector)
+	}
+
+	wg.Wait()
+
+	return nil
+}
+
+func (c *OSLogCollector) CollectLogs() error {
+	endTime := flextime.Now().Format(logCommandTimeFormat)
+
+	command := NewLogCommandBuilder().
+		WithPredicate(c.Predicate).WithStartTime(c.LastTimestamp).WithEndTime(endTime).
+		WithStyle(defaultStyle).WithInfoLevel(c.WithInfoLevel).
+		Build()
+	output, err := c.logCommandRunnerGenerator(command).RunLogCommand()
+	if err != nil {
+		return fmt.Errorf("error executing log command: %v, output: %s", err, string(output))
+	}
+
+	if err := c.writeToLogFile(output); err != nil {
+		return err
+	}
+
+	c.LastTimestamp = endTime
+	return c.savePosition()
 }
 
 func (c *OSLogCollector) OpenLogFile() error {
@@ -124,24 +175,4 @@ func (c *OSLogCollector) savePosition() error {
 	}
 
 	return nil
-}
-
-func (c *OSLogCollector) CollectLogs() error {
-	endTime := flextime.Now().Format(logCommandTimeFormat)
-
-	command := NewLogCommandBuilder().
-		WithPredicate(c.Predicate).WithStartTime(c.LastTimestamp).WithEndTime(endTime).
-		WithStyle(defaultStyle).WithInfoLevel(c.WithInfoLevel).
-		Build()
-	output, err := c.logCommandRunnerGenerator(command).RunLogCommand()
-	if err != nil {
-		return fmt.Errorf("error executing log command: %v, output: %s", err, string(output))
-	}
-
-	if err := c.writeToLogFile(output); err != nil {
-		return err
-	}
-
-	c.LastTimestamp = endTime
-	return c.savePosition()
 }
