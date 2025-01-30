@@ -81,12 +81,12 @@ func TestOSLogCollector_CollectLog(t *testing.T) {
 
 				if count == 1 {
 					// If the pos file does not exist at the first startup, the start time will be the current time.
-					startTime = tt.nowTime.Format("2006-01-02 15:04:05")
-					endTime = flextime.Now().Format("2006-01-02 15:04:05")
+					startTime = tt.nowTime.Format(oslog_collector.LogCommandTimeFormat)
+					endTime = flextime.Now().Format(oslog_collector.LogCommandTimeFormat)
 				} else {
 					// From the second time onwards, the end time of the previous time becomes the start time.
-					startTime = flextime.Now().Add(-tt.interval).Format("2006-01-02 15:04:05")
-					endTime = flextime.Now().Format("2006-01-02 15:04:05")
+					startTime = flextime.Now().Add(-tt.interval).Format(oslog_collector.LogCommandTimeFormat)
+					endTime = flextime.Now().Format(oslog_collector.LogCommandTimeFormat)
 				}
 
 				assert.Equal(t, []string{"log", "show", "--predicate", "eventMessage contains[cd] \"test\"", "--start", startTime, "--end", endTime, "--style", "ndjson"}, args)
@@ -108,7 +108,7 @@ func TestOSLogCollector_CollectLog(t *testing.T) {
 
 					pos, err := os.ReadFile(cfg.PositionFile)
 					assert.NoError(t, err)
-					assert.Equal(t, fmt.Sprintf("{\"last_timestamp\":\"%s\"}", flextime.Now().Format("2006-01-02 15:04:05")), string(pos))
+					assert.Equal(t, fmt.Sprintf("{\"last_timestamp\":\"%s\"}", flextime.Now().Format(oslog_collector.LogCommandTimeFormat)), string(pos))
 				})
 
 				// emulate the sleep

@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	logCommandTimeFormat = "2006-01-02 15:04:05"
+	LogCommandTimeFormat = "2006-01-02 15:04:05"
 	defaultStyle         = "ndjson"
 )
 
@@ -94,7 +94,7 @@ func StartLogCollectors(ctx context.Context, collectors []*OSLogCollector) error
 }
 
 func (c *OSLogCollector) CollectLogs() error {
-	endTime := flextime.Now().Format(logCommandTimeFormat)
+	endTime := flextime.Now().Format(LogCommandTimeFormat)
 
 	command := NewLogCommandBuilder().
 		WithPredicate(c.Predicate).WithStartTime(c.LastTimestamp).WithEndTime(endTime).
@@ -148,7 +148,7 @@ func (c *OSLogCollector) writeToLogFile(data []byte) error {
 func (c *OSLogCollector) loadPosition() error {
 	data, err := os.ReadFile(c.PositionFile)
 	if os.IsNotExist(err) {
-		c.LastTimestamp = flextime.Now().Format(logCommandTimeFormat)
+		c.LastTimestamp = flextime.Now().Format(LogCommandTimeFormat)
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("error reading position file: %v", err)

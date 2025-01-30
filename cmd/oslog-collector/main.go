@@ -29,7 +29,7 @@ func main() {
 	}
 
 	configFile := os.Args[1]
-	config, err := oslog_collector.LoadConfig(configFile)
+	config, err := oslog_collector.LoadConfigFromFile(configFile)
 	if err != nil {
 		slog.Error("Error loading config", "error", err)
 		os.Exit(1)
